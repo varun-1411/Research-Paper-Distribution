@@ -25,20 +25,20 @@ def read_bid_file(filepath):
     """
     Read a single bid file and extract team info and bids.
     
-    Expected format:
-    - Row 2 (index 1): Team name in column D (index 3)
-    - Row 3 (index 2): Member 1 name in column D (index 3)
-    - Row 4 (index 3): Member 2 name in column D (index 3)
-    - Rows 8+ (index 7+): Paper names in column C (index 2), Bids in column D (index 3)
+    Expected format (0-indexed):
+    - Row 2, Col 3: Team name
+    - Row 3, Col 3: Member 1 name
+    - Row 4, Col 3: Member 2 name
+    - Row 8+: Paper names in Col 2, Bids in Col 3
     """
     df = pd.read_excel(filepath, header=None)
     
-    # Extract team name
-    team_name = str(df.iloc[1, 3]).strip() if pd.notna(df.iloc[1, 3]) else "Unknown"
+    # Extract team name (Row 2, Col 3)
+    team_name = str(df.iloc[2, 3]).strip() if pd.notna(df.iloc[2, 3]) else "Unknown"
     
-    # Extract member names
-    member1 = str(df.iloc[2, 3]).strip() if pd.notna(df.iloc[2, 3]) else ""
-    member2 = str(df.iloc[3, 3]).strip() if pd.notna(df.iloc[3, 3]) else ""
+    # Extract member names (Row 3 and Row 4, Col 3)
+    member1 = str(df.iloc[3, 3]).strip() if pd.notna(df.iloc[3, 3]) else ""
+    member2 = str(df.iloc[4, 3]).strip() if pd.notna(df.iloc[4, 3]) else ""
     
     members = []
     if member1 and member1.lower() != 'nan':
@@ -47,9 +47,9 @@ def read_bid_file(filepath):
         members.append(member2)
     members_str = ", ".join(members) if members else "No members listed"
     
-    # Extract bids
+    # Extract bids (starting from Row 8, Col 2 for paper, Col 3 for bid)
     bids = {}
-    for i in range(7, len(df)):
+    for i in range(8, len(df)):
         paper = df.iloc[i, 2]
         bid = df.iloc[i, 3]
         
@@ -93,7 +93,9 @@ def load_all_bids(folder_path):
         try:
             data = read_bid_file(filepath)
             teams_data.append(data)
-            print(f"Loaded: {data['team_name']} - Members: {data['members']} ({len(data['bids'])} papers)")
+            # print len of bids with bid > 0
+            printed_bids = [b for b in data['bids'].values() if b > 0]
+            print(f"Loaded: {data['team_name']} - Members: {data['members']} ({len(printed_bids)} papers with bids > 0)")
         except Exception as e:
             print(f"Warning: Could not read {filepath}: {e}")
     
@@ -102,14 +104,11 @@ def load_all_bids(folder_path):
 
 def optimize_assignment(teams_data, lp_filename="paper_assignment.lp"):
     """
-    Solve the paper assignment problem using Gurobi.
-    
     Maximize: sum of bid values for assigned papers
     Subject to:
         - Each team gets exactly one paper
         - Each paper is assigned to at most one team
     
-    Also writes the LP formulation to a file.
     """
     # Collect all unique papers
     all_papers = set()
